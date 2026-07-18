@@ -17,6 +17,7 @@ import { Route as HoTroSinhVienRouteImport } from './routes/ho-tro-sinh-vien'
 import { Route as DuAnRouteImport } from './routes/du-an'
 import { Route as DichVuRouteImport } from './routes/dich-vu'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiContactRouteImport } from './routes/api/contact'
 
 const StartupMvpRoute = StartupMvpRouteImport.update({
   id: '/startup-mvp',
@@ -58,6 +59,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiContactRoute = ApiContactRouteImport.update({
+  id: '/api/contact',
+  path: '/api/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -68,6 +74,7 @@ export interface FileRoutesByFullPath {
   '/quy-trinh': typeof QuyTrinhRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/startup-mvp': typeof StartupMvpRoute
+  '/api/contact': typeof ApiContactRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -78,6 +85,7 @@ export interface FileRoutesByTo {
   '/quy-trinh': typeof QuyTrinhRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/startup-mvp': typeof StartupMvpRoute
+  '/api/contact': typeof ApiContactRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -89,6 +97,7 @@ export interface FileRoutesById {
   '/quy-trinh': typeof QuyTrinhRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/startup-mvp': typeof StartupMvpRoute
+  '/api/contact': typeof ApiContactRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -101,6 +110,7 @@ export interface FileRouteTypes {
     | '/quy-trinh'
     | '/sitemap.xml'
     | '/startup-mvp'
+    | '/api/contact'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -111,6 +121,7 @@ export interface FileRouteTypes {
     | '/quy-trinh'
     | '/sitemap.xml'
     | '/startup-mvp'
+    | '/api/contact'
   id:
     | '__root__'
     | '/'
@@ -121,6 +132,7 @@ export interface FileRouteTypes {
     | '/quy-trinh'
     | '/sitemap.xml'
     | '/startup-mvp'
+    | '/api/contact'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -132,6 +144,7 @@ export interface RootRouteChildren {
   QuyTrinhRoute: typeof QuyTrinhRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   StartupMvpRoute: typeof StartupMvpRoute
+  ApiContactRoute: typeof ApiContactRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -192,6 +205,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/contact': {
+      id: '/api/contact'
+      path: '/api/contact'
+      fullPath: '/api/contact'
+      preLoaderRoute: typeof ApiContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -204,6 +224,7 @@ const rootRouteChildren: RootRouteChildren = {
   QuyTrinhRoute: QuyTrinhRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   StartupMvpRoute: StartupMvpRoute,
+  ApiContactRoute: ApiContactRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

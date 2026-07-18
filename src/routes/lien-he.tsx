@@ -1,11 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { z } from "zod";
 import { Phone, Mail, MessageCircle, Facebook, Youtube, CheckCircle2 } from "lucide-react";
 import { PageHeader, PageShell } from "@/components/site/PageShell";
 import { Reveal } from "@/components/site/Reveal";
 import { ZaloButton } from "@/components/site/ZaloButton";
 import { CONTACT } from "@/lib/contact";
+import {
+  BUDGET_OPTIONS,
+  contactFormSchema,
+  NEED_OPTIONS,
+  TIMELINE_OPTIONS,
+  type ContactFormValues,
+} from "@/lib/contact-form";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/lien-he")({
@@ -22,74 +28,80 @@ export const Route = createFileRoute("/lien-he")({
   component: ContactPage,
 });
 
-const NEED_OPTIONS = [
-  "Hỗ trợ đồ án CNTT",
-  "Landing Page",
-  "Website",
-  "Web App",
-  "Mobile App",
-  "Custom Tool / Automation",
-  "MVP cho Startup",
-  "Khác",
-];
-
-const BUDGET_OPTIONS = [
-  "Dưới 5 triệu",
-  "5 – 15 triệu",
-  "15 – 30 triệu",
-  "30 – 60 triệu",
-  "Trên 60 triệu",
-  "Trao đổi riêng",
-];
-
-const TIMELINE_OPTIONS = [
-  "Càng sớm càng tốt",
-  "Trong 2 tuần",
-  "Trong 1 tháng",
-  "1 – 3 tháng",
-  "Chưa xác định",
-];
-
-const schema = z.object({
-  name: z.string().trim().min(2, "Vui lòng nhập họ tên").max(80),
-  phone: z.string().trim().regex(/^[0-9+()\-\s.]{8,20}$/, "Số điện thoại/Zalo không hợp lệ"),
-  email: z.string().trim().email("Email không hợp lệ").max(120),
-  need: z.string().min(1, "Chọn loại nhu cầu"),
-  description: z.string().trim().min(10, "Mô tả tối thiểu 10 ký tự").max(1500),
-  budget: z.string().min(1, "Chọn khoảng ngân sách"),
-  timeline: z.string().min(1, "Chọn thời gian mong muốn"),
-});
-type FormValues = z.infer<typeof schema>;
-type Errors = Partial<Record<keyof FormValues, string>>;
+type Errors = Partial<Record<keyof ContactFormValues, string>>;
 
 const inputCls = "w-full rounded-lg border border-border bg-background/60 px-3.5 py-2.5 text-sm text-foreground shadow-xs outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30";
 
 function ContactPage() {
-  const [values, setValues] = useState<FormValues>({
+  const [values, setValues] = useState<ContactFormValues>({
     name: "", phone: "", email: "", need: "", description: "", budget: "", timeline: "",
   });
   const [errors, setErrors] = useState<Errors>({});
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [leadId, setLeadId] = useState("");
+  const [website, setWebsite] = useState("");
 
-  function update<K extends keyof FormValues>(key: K, v: FormValues[K]) {
+  function update<K extends keyof ContactFormValues>(key: K, v: ContactFormValues[K]) {
     setValues((s) => ({ ...s, [key]: v }));
     if (errors[key]) setErrors((e) => ({ ...e, [key]: undefined }));
   }
 
-  function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const parsed = schema.safeParse(values);
+    if (submitting) return;
+
+    const parsed = contactFormSchema.safeParse(values);
     if (!parsed.success) {
       const next: Errors = {};
       for (const issue of parsed.error.issues) {
-        const k = issue.path[0] as keyof FormValues;
+        const k = issue.path[0] as keyof ContactFormValues;
         if (!next[k]) next[k] = issue.message;
       }
       setErrors(next);
       return;
     }
     setErrors({});
-    setSubmitted(true);
+    setSubmitError("");
+    setSubmitting(true);
+
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          ...parsed.data,
+          website,
+          sourceUrl: window.location.href,
+          utmSource: params.get("utm_source") ?? "",
+          utmMedium: params.get("utm_medium") ?? "",
+          utmCampaign: params.get("utm_campaign") ?? "",
+        }),
+      });
+
+      const result = (await response.json().catch(() => ({}))) as {
+        ok?: boolean;
+        leadId?: string;
+        message?: string;
+      };
+
+      if (!response.ok || result.ok !== true) {
+        throw new Error(result.message || "Chưa thể gửi yêu cầu. Vui lòng thử lại.");
+      }
+
+      setLeadId(result.leadId ?? "");
+      setSubmitted(true);
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error
+          ? error.message
+          : "Chưa thể gửi yêu cầu. Vui lòng thử lại hoặc nhắn Zalo.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -184,13 +196,18 @@ function ContactPage() {
                     <CheckCircle2 className="mx-auto size-10 text-brand" />
                     <h3 className="mt-3 text-lg font-bold">Đã gửi yêu cầu!</h3>
                     <p className="mt-2 text-sm text-muted-foreground">
-                      Chúng tôi sẽ liên hệ lại trong thời gian sớm nhất. Để nhanh hơn, bạn có thể nhắn Zalo ngay bây giờ.
+                      Yêu cầu đã được lưu vào hệ thống. Chúng tôi sẽ liên hệ lại trong thời gian sớm nhất.
                     </p>
+                    {leadId && (
+                      <p className="mt-2 text-xs font-medium text-foreground">
+                        Mã yêu cầu: <span className="font-mono">{leadId}</span>
+                      </p>
+                    )}
                     <div className="mt-4 flex flex-wrap justify-center gap-2">
                       <ZaloButton />
                       <button
                         type="button"
-                        onClick={() => { setSubmitted(false); setValues({ name: "", phone: "", email: "", need: "", description: "", budget: "", timeline: "" }); }}
+                        onClick={() => { setSubmitted(false); setLeadId(""); setSubmitError(""); setWebsite(""); setValues({ name: "", phone: "", email: "", need: "", description: "", budget: "", timeline: "" }); }}
                         className="inline-flex h-10 items-center justify-center rounded-full border border-border bg-card/60 px-4 text-sm font-semibold hover:bg-accent"
                       >
                         Gửi yêu cầu khác
@@ -245,12 +262,30 @@ function ContactPage() {
                     <Field label="Mô tả yêu cầu" error={errors.description} required className="sm:col-span-2">
                       <textarea rows={5} className={inputCls} value={values.description} onChange={(e) => update("description", e.target.value)} placeholder="Mục tiêu, đối tượng người dùng, tính năng chính, tham khảo..." />
                     </Field>
+                    <div className="absolute -left-[10000px] top-auto h-px w-px overflow-hidden" aria-hidden="true">
+                      <label>
+                        Website
+                        <input
+                          name="website"
+                          tabIndex={-1}
+                          autoComplete="off"
+                          value={website}
+                          onChange={(e) => setWebsite(e.target.value)}
+                        />
+                      </label>
+                    </div>
+                    {submitError && (
+                      <div role="alert" className="sm:col-span-2 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                        {submitError}
+                      </div>
+                    )}
                     <div className="sm:col-span-2 flex flex-wrap items-center gap-3">
                       <button
                         type="submit"
-                        className="inline-flex h-12 items-center justify-center rounded-full bg-gradient-to-r from-brand to-cyan-accent px-6 text-sm font-semibold text-brand-foreground btn-glow transition-transform hover:scale-[1.02]"
+                        disabled={submitting}
+                        className="inline-flex h-12 items-center justify-center rounded-full bg-gradient-to-r from-brand to-cyan-accent px-6 text-sm font-semibold text-brand-foreground btn-glow transition-transform hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100"
                       >
-                        Gửi yêu cầu
+                        {submitting ? "Đang lưu yêu cầu..." : "Gửi yêu cầu"}
                       </button>
                       <span className="text-xs text-muted-foreground">Hoặc nhắn Zalo để phản hồi nhanh trong ngày.</span>
                     </div>
